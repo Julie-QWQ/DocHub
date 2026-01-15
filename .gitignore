@@ -1,0 +1,11 @@
+.vscode/
+.claude/
+CLAUDE.md
+
+# Backend
+backend/logs/
+backend/bin/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/

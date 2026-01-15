@@ -1,0 +1,121 @@
+// ==================== Substack 风格设计系统 ====================
+
+// 主题颜色
+$primary-color: #1a1a1a;         // 主色调 - 深黑色
+$primary-light: #333333;         // 次级黑色
+$accent-color: #FF6B35;          // 强调色 - 橙红色
+$link-color: #1a1a1a;            // 链接颜色
+$link-hover: #FF6B35;            // 链接悬停
+
+// 状态颜色
+$success-color: #67c23a;
+$warning-color: #e6a23c;
+$danger-color: #f56c6c;
+$info-color: #909399;
+
+// 角色颜色
+$role-student-bg: #f0f9ff;
+$role-student-text: #0284c7;
+$role-committee-bg: #fef3c7;
+$role-committee-text: #d97706;
+$role-admin-bg: #fee2e2;
+$role-admin-text: #dc2626;
+
+// 文字颜色
+$text-primary: #1a1a1a;          // 主要文字
+$text-regular: #333333;          // 常规文字
+$text-secondary: #666666;        // 次要文字
+$text-tertiary: #999999;         // 三级文字
+$text-placeholder: #cccccc;      // 占位符
+
+// 背景颜色
+$bg-color: #ffffff;              // 主背景
+$bg-page: #ffffff;               // 页面背景
+$bg-secondary: #fafafa;          // 次级背景
+$bg-tertiary: #f5f5f5;           // 三级背景
+$bg-hover: #f0f0f0;              // 悬停背景
+
+// 边框颜色
+$border-base: #e5e5e5;           // 基础边框
+$border-light: #f2f2f2;          // 浅色边框
+$border-lighter: #f5f5f5;        // 更浅边框
+
+// 字体
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+  'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+  'Noto Color Emoji';
+$font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas,
+  'Courier New', monospace;
+
+$font-size-xs: 11px;
+$font-size-sm: 12px;
+$font-size-base: 14px;
+$font-size-md: 15px;
+$font-size-lg: 16px;
+$font-size-xl: 18px;
+$font-size-2xl: 20px;
+$font-size-3xl: 24px;
+$font-size-4xl: 32px;
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// 行高
+$line-height-tight: 1.25;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.75;
+
+// 间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+$spacing-2xl: 32px;
+$spacing-3xl: 48px;
+
+// 圆角
+$border-radius-sm: 4px;
+$border-radius-base: 6px;
+$border-radius-md: 8px;
+$border-radius-lg: 12px;
+$border-radius-xl: 16px;
+$border-radius-full: 9999px;
+
+// 阴影
+$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-base: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+$shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+$shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
+
+// 布局
+$header-height: 60px;
+$sidebar-width: 260px;
+$sidebar-collapsed-width: 80px;
+$container-max-width: 1200px;
+$content-max-width: 680px;
+
+// 过渡
+$transition-fast: 0.1s;
+$transition-base: 0.15s;
+$transition-slow: 0.2s;
+$transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+
+// Z-index
+$z-index-dropdown: 1000;
+$z-index-sticky: 1020;
+$z-index-fixed: 1030;
+$z-index-modal-backdrop: 1040;
+$z-index-modal: 1050;
+$z-index-popover: 1060;
+$z-index-tooltip: 1070;
+
+// 断点
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;
+$breakpoint-2xl: 1536px;
