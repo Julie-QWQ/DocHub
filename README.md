@@ -1,4 +1,4 @@
-# Study-UPC
+# UPC-STUDY
 
 > 学院学习资料托管平台 - 面向学院的学习资料共享与管理平台
 
@@ -8,7 +8,7 @@ Study-UPC 是面向学院的学习资料管理平台，提供资料上传下载�
 
 ### ✅ 核心功能
 
-- **用户认证**：注册登录、基于角色的权限控制（RBAC）
+- **用户认证**：注册登录、基于角色的权限控制
 - **资料管理**：资料上传、下载、分类、标签
 - **审核流程**：学委审核、内容审核、违规举报处理
 - **检索与推荐**：全文搜索、多条件筛选、热门资料推荐
@@ -23,7 +23,7 @@ Study-UPC 是面向学院的学习资料管理平台，提供资料上传下载�
 | **后端** | Go 1.21 + Gin + GORM + JWT |
 | **数据库** | PostgreSQL 15 + Redis 7 |
 | **存储** | MinIO（开发）/ 阿里云 OSS（生产） |
-| **部署** | Nginx + systemd（推荐） |
+| **部署** | Nginx + systemd |
 
 ## 📁 项目结构
 
@@ -77,13 +77,11 @@ go run cmd/server/main.go
 
 ```bash
 cd frontend
-npm ci
+npm install
 npm run dev
 ```
 
-默认 Vite 端口为 `5173`，后端默认端口为 `8080`。
-
-## 🧩 生产部署（不使用 Docker）
+## 🧩 生产部署
 
 ### 1) 配置后端（阿里云 OSS）
 
@@ -96,11 +94,11 @@ npm run dev
 ### 2) 构建并运行后端
 
 ```bash
-cd backend
-go build -o bin/server ./cmd/server
-export APP_ENV=production
-export CONFIG_PATH=configs/config.prod.yaml
-./bin/server
+vim /etc/systemd/system/upc-study.service
+sudo systemctl deamon-reload
+sudo systemctl enable upc-study
+sudo systemctl start upc-study
+sudo systemctl status upc-study
 ```
 
 健康检查：`http://127.0.0.1:8080/health`
@@ -115,7 +113,7 @@ npm run build
 
 ### 4) 配置 Nginx 反向代理
 
-示例（`/etc/nginx/conf.d/study-upc.conf`）：
+示例（`/etc/nginx/conf.d/upc-study.conf`）：
 
 ```nginx
 server {
@@ -154,7 +152,7 @@ sudo bash scripts/setup-nginx.sh example.com /opt/study-upc/frontend/dist 127.0.
 - `scripts/setup-postgres.sh`：初始化 PostgreSQL 用户与数据库
 - `scripts/setup-redis.sh`：设置 Redis 密码并限制本机访问
 - `scripts/setup-nginx.sh`：生成 Nginx 站点配置并热加载
-- `scripts/docker-up.bat`/`docker-down.bat`：Windows 下启动/停止基础服务（仅在有 Docker 时使用）
+- `scripts/docker-up.bat`/`docker-down.bat`：Windows 开发环境下启动/停止基础服务（仅在有 Docker 时使用）
 
 ## 🤝 贡献指南
 
