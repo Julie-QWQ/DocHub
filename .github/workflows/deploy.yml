@@ -18,9 +18,33 @@ jobs:
           script: |
             set -e  # 遇到错误立即退出
 
+            # 设置 Git 超时时间和重试
+            git config --global http.lowSpeedLimit 0
+            git config --global http.lowSpeedTime 999999
+            git config --global http.postBuffer 1048576000
+
             echo "=== 1. 拉取最新代码 ==="
             cd /root/upc-study
-            git pull
+
+            # 尝试使用 GitHub 镜像加速（如果原生 GitHub 很慢）
+            CURRENT_REMOTE=$(git remote get-url origin)
+            if [[ ! "$CURRENT_REMOTE" =~ "github.com.cnpmjs.org" ]] && [[ ! "$CURRENT_REMOTE" =~ "ghproxy.com" ]]; then
+              echo "检测到使用原生 GitHub 地址，切换到镜像加速..."
+              ORIGINAL_REMOTE="$CURRENT_REMOTE"
+              # 提取仓库路径，如: username/repo.git
+              REPO_PATH=$(echo "$CURRENT_REMOTE" | sed -E 's|https://github.com/||')
+              # 使用 cnpmjs 镜像
+              git remote set-url origin "https://github.com.cnpmjs.org/$REPO_PATH"
+            fi
+
+            # 使用 git fetch + git reset 更可靠
+            git fetch --all
+            git reset --hard origin/main
+
+            # 恢复原始远程地址（可选，如果不需要可以注释掉）
+            # if [ -n "$ORIGINAL_REMOTE" ]; then
+            #   git remote set-url origin "$ORIGINAL_REMOTE"
+            # fi
 
             echo "=== 2. 安装前端依赖 ==="
             cd /root/upc-study/frontend
