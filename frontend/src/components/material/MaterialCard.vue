@@ -67,16 +67,29 @@ const toggleFavorite = async (event: MouseEvent) => {
 
   try {
     if (isFavorited) {
-      await materialStore.removeFavorite(props.material.id)
+      // 乐观更新：立即更新 UI，不等待 API
+      materialStore.removeFavorite(props.material.id, true)
       ElMessage.success('已取消收藏')
+
+      // 异步调用 API
+      materialStore.removeFavorite(props.material.id, false).catch(() => {
+        // 如果失败，回滚状态
+        materialStore.addFavorite(props.material.id, true)
+        ElMessage.error('操作失败，已回滚')
+      })
     } else {
-      const response = await materialStore.addFavorite(props.material.id)
-      // 检查响应消息,如果已经收藏则提示
-      if (response.message === '已收藏') {
-        ElMessage.info('您已收藏过该资料')
-      } else {
-        ElMessage.success('收藏成功')
-      }
+      // 乐观更新：立即更新 UI，不等待 API
+      materialStore.addFavorite(props.material.id, true)
+      ElMessage.success('收藏成功')
+
+      // 异步调用 API
+      materialStore.addFavorite(props.material.id, false).catch((error: any) => {
+        // 如果失败，回滚状态
+        if (error.code !== 10006) { // 10006 是"已收藏"错误，不需要回滚
+          materialStore.removeFavorite(props.material.id, true)
+          ElMessage.error(error.message || '操作失败，已回滚')
+        }
+      })
     }
   } catch (error: any) {
     ElMessage.error(error.message || '操作失败')
