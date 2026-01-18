@@ -123,9 +123,19 @@ func main() {
 func pickConfigPath(appEnv, ginMode string) string {
 	var candidates []string
 	if appEnv == "production" || ginMode == "release" {
-		candidates = []string{"configs/config.prod.local.yaml", "configs/config.prod.yaml"}
+		candidates = []string{
+			"configs/config.prod.local.yaml",
+			"backend/configs/config.prod.local.yaml",
+			"configs/config.prod.yaml",
+			"backend/configs/config.prod.yaml",
+		}
 	} else {
-		candidates = []string{"configs/config.dev.local.yaml", "configs/config.dev.yaml"}
+		candidates = []string{
+			"configs/config.dev.local.yaml",
+			"backend/configs/config.dev.local.yaml",
+			"configs/config.dev.yaml",
+			"backend/configs/config.dev.yaml",
+		}
 	}
 
 	paths := resolvePaths(candidates)

@@ -47,6 +47,36 @@ func extractMigrationVersion(filename string) string {
 	return version
 }
 
+func findMigrationFiles() (string, []string, error) {
+	candidates := []string{"migrations", filepath.Join("backend", "migrations")}
+
+	var searchPaths []string
+	if cwd, err := os.Getwd(); err == nil {
+		for _, dir := range candidates {
+			searchPaths = append(searchPaths, filepath.Join(cwd, dir))
+		}
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		for _, dir := range candidates {
+			searchPaths = append(searchPaths, filepath.Join(exeDir, dir))
+		}
+	}
+	searchPaths = append(searchPaths, candidates...)
+
+	for _, dir := range searchPaths {
+		files, err := filepath.Glob(filepath.Join(dir, "*.up.sql"))
+		if err != nil {
+			continue
+		}
+		if len(files) > 0 {
+			return dir, files, nil
+		}
+	}
+
+	return "", nil, fmt.Errorf("no migration files found in %v", searchPaths)
+}
+
 // RunMigrations 执行数据库迁移
 func RunMigrations(cfg *config.Config) error {
 	// 初始化迁移版本跟踪表
@@ -55,8 +85,7 @@ func RunMigrations(cfg *config.Config) error {
 	}
 
 	// 获取所有 .up.sql 迁移文件
-	migrationsDir := "migrations"
-	files, err := filepath.Glob(filepath.Join(migrationsDir, "*.up.sql"))
+	migrationsDir, files, err := findMigrationFiles()
 	if err != nil {
 		return fmt.Errorf("查找迁移文件失败: %w", err)
 	}
@@ -122,7 +151,10 @@ func RollbackMigrations(cfg *config.Config) error {
 	}
 
 	// 查找对应的 down 文件
-	migrationsDir := "migrations"
+	migrationsDir, _, err := findMigrationFiles()
+	if err != nil {
+		return fmt.Errorf("查找迁移文件失败: %w", err)
+	}
 	downFile := filepath.Join(migrationsDir, migration.Version+".down.sql")
 
 	if _, err := os.Stat(downFile); os.IsNotExist(err) {
