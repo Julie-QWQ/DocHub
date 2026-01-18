@@ -7,6 +7,7 @@ import (
 	"github.com/study-upc/backend/internal/model"
 	"github.com/study-upc/backend/internal/pkg/response"
 	"github.com/study-upc/backend/internal/pkg/utils"
+	"github.com/study-upc/backend/internal/repository"
 	"github.com/study-upc/backend/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -14,10 +15,10 @@ import (
 
 // AuthHandler 认证处理器
 type AuthHandler struct {
-	authService            service.AuthService
+	authService              service.AuthService
 	emailVerificationService service.EmailVerificationService
-	statisticsService      service.StatisticsService
-	jwtManager            *utils.JWTManager
+	statisticsService        service.StatisticsService
+	jwtManager               *utils.JWTManager
 }
 
 // NewAuthHandler 创建认证处理器实例
@@ -60,7 +61,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	userInfo, err := h.authService.Register(c.Request.Context(), &req)
 	if err != nil {
 		switch {
-		case err.Error() == "用户已存在":
+		case errors.Is(err, repository.ErrUserAlreadyExists):
 			response.Error(c, response.ErrUserExists, err.Error())
 		default:
 			response.Error(c, response.ErrInternal, err.Error())
@@ -116,6 +117,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			// 记录登录失败的日志
 			_ = h.statisticsService.RecordLoginLog(0, c.ClientIP(), c.Request.UserAgent(), false)
 
+			if errors.Is(loginErr, service.ErrUserDisabled) || errors.Is(loginErr, service.ErrUserInactive) {
+				response.Error(c, response.ErrUserDisabled, loginErr.Error())
+				return
+			}
 			response.Error(c, response.ErrInvalidCredentials, loginErr.Error())
 			return
 		}
@@ -149,7 +154,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 				response.Error(c, response.ErrInvalidCredentials, err.Error())
 				return
 			}
-			if errors.Is(err, service.ErrUserDisabled) {
+			if errors.Is(err, service.ErrUserDisabled) || errors.Is(err, service.ErrUserInactive) {
 				response.Error(c, response.ErrUserDisabled, err.Error())
 				return
 			}
@@ -222,7 +227,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 			response.Error(c, response.ErrInvalidToken, err.Error())
 			return
 		}
-		if errors.Is(err, service.ErrUserDisabled) {
+		if errors.Is(err, service.ErrUserDisabled) || errors.Is(err, service.ErrUserInactive) {
 			response.Error(c, response.ErrUserDisabled, err.Error())
 			return
 		}

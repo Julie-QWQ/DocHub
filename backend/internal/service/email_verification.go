@@ -55,7 +55,7 @@ func (s *emailVerificationService) SendVerificationCode(ctx context.Context, ema
 	// 去除邮箱首尾空格
 	emailAddr = strings.TrimSpace(emailAddr)
 
-if err := s.emailRepo.DeleteByEmail(ctx, emailAddr); err != nil {
+	if err := s.emailRepo.DeleteByEmail(ctx, emailAddr); err != nil {
 		return fmt.Errorf("删除旧验证码失败: %w", err)
 	}
 
@@ -153,8 +153,8 @@ func (s *emailVerificationService) RegisterWithEmailCode(ctx context.Context, us
 		Email:         emailAddr,
 		PasswordHash:  password, // Repository会进行hash处理
 		Role:          model.RoleStudent,
-		Status:        model.StatusInactive, // 初始状态为未激活
-		EmailVerified: true,                 // 邮箱已验证
+		Status:        model.StatusActive,
+		EmailVerified: true, // 邮箱已验证
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
@@ -191,7 +191,10 @@ func (s *emailVerificationService) LoginWithEmailCode(ctx context.Context, email
 
 	// 检查账号状态
 	if user.Status == model.StatusBanned {
-		return "", nil, errors.New("账号已被封禁")
+		return "", nil, ErrUserDisabled
+	}
+	if user.Status == model.StatusInactive {
+		return "", nil, ErrUserInactive
 	}
 
 	// 更新最后登录时间

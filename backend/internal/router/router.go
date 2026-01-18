@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/study-upc/backend/internal/handler"
 	"github.com/study-upc/backend/internal/middleware"
 	"github.com/study-upc/backend/internal/pkg/config"
@@ -19,6 +17,8 @@ import (
 	"github.com/study-upc/backend/internal/pkg/utils"
 	"github.com/study-upc/backend/internal/repository"
 	"github.com/study-upc/backend/internal/service"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +29,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// 全局中间件
 	r.Use(middleware.Recovery())
 	r.Use(middleware.Logger())
-	r.Use(middleware.CORS())
+	r.Use(middleware.CORS(cfg.Server.CORSAllowOrigins))
 	r.Use(middleware.RequestID())
 
 	// 健康检查
@@ -70,14 +70,25 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	emailVerificationRepo := repository.NewEmailVerificationRepository(db)
 
 	// 初始化 OSS 服务
-	ossClient, err := oss.NewMinIOClient(&oss.MinIOConfig{
-		Endpoint:  cfg.OSS.Endpoint,
-		AccessKey: cfg.OSS.AccessKey,
-		SecretKey: cfg.OSS.SecretKey,
-		Bucket:    cfg.OSS.BucketName,
-		Region:    cfg.OSS.Region,
-		UseSSL:    cfg.OSS.UseSSL,
-	})
+	var ossClient oss.OSSClient
+	var err error
+	ossProvider := strings.ToLower(strings.TrimSpace(cfg.OSS.Provider))
+	if ossProvider == "" {
+		ossProvider = "minio"
+	}
+	switch ossProvider {
+	case "minio", "aliyun":
+		ossClient, err = oss.NewMinIOClient(&oss.MinIOConfig{
+			Endpoint:  cfg.OSS.Endpoint,
+			AccessKey: cfg.OSS.AccessKey,
+			SecretKey: cfg.OSS.SecretKey,
+			Bucket:    cfg.OSS.BucketName,
+			Region:    cfg.OSS.Region,
+			UseSSL:    cfg.OSS.UseSSL,
+		})
+	default:
+		panic(fmt.Sprintf("不支持的 OSS provider: %s", cfg.OSS.Provider))
+	}
 	if err != nil {
 		panic(fmt.Sprintf("初始化 OSS 客户端失败: %v", err))
 	}
@@ -98,6 +109,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		Username: cfg.SMTP.Username,
 		Password: cfg.SMTP.Password,
 		From:     cfg.SMTP.From,
+		TLSMode:  cfg.SMTP.TLSMode,
 	})
 
 	// 初始化 Service 层
@@ -186,8 +198,29 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			// 邮箱验证相关
 			verification := public.Group("/verification")
 			{
-				verification.POST("/send", emailVerificationHandler.SendVerificationCode) // 发送验证码
-				verification.POST("/verify", emailVerificationHandler.VerifyCode)         // 验证验证码
+				if cfg.Server.Mode == "debug" {
+					verification.POST("/send", emailVerificationHandler.SendVerificationCode) // 发送验证码
+					verification.POST("/verify", emailVerificationHandler.VerifyCode)         // 验证验证码
+				} else {
+					verification.POST(
+						"/send",
+						middleware.GeneralRateLimit(redisClient, middleware.RateLimitConfig{
+							Window: 10 * time.Minute,
+							Limit:  5,
+							Prefix: "verification:send",
+						}),
+						emailVerificationHandler.SendVerificationCode,
+					)
+					verification.POST(
+						"/verify",
+						middleware.GeneralRateLimit(redisClient, middleware.RateLimitConfig{
+							Window: 10 * time.Minute,
+							Limit:  20,
+							Prefix: "verification:verify",
+						}),
+						emailVerificationHandler.VerifyCode,
+					)
+				}
 			}
 
 			// 系统配置（公开）
@@ -206,17 +239,17 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			// 资料类型相关（所有认证用户可访问）
 			materialCategories := protected.Group("/material-categories")
 			{
-				materialCategories.GET("", materialCategoryHandler.List)               // 获取资料类型列表
-				materialCategories.GET("/:id", materialCategoryHandler.GetByID)        // 获取资料类型详情
+				materialCategories.GET("", materialCategoryHandler.List)        // 获取资料类型列表
+				materialCategories.GET("/:id", materialCategoryHandler.GetByID) // 获取资料类型详情
 			}
 
 			// 资料类型管理（管理员权限）
 			adminMaterialCategories := protected.Group("/admin/material-categories")
 			adminMaterialCategories.Use(middleware.RequireAdmin())
 			{
-				adminMaterialCategories.POST("", materialCategoryHandler.Create)               // 创建资料类型
-				adminMaterialCategories.PUT("/:id", materialCategoryHandler.Update)            // 更新资料类型
-				adminMaterialCategories.DELETE("/:id", materialCategoryHandler.Delete)         // 删除资料类型
+				adminMaterialCategories.POST("", materialCategoryHandler.Create)                  // 创建资料类型
+				adminMaterialCategories.PUT("/:id", materialCategoryHandler.Update)               // 更新资料类型
+				adminMaterialCategories.DELETE("/:id", materialCategoryHandler.Delete)            // 删除资料类型
 				adminMaterialCategories.POST("/:id/toggle", materialCategoryHandler.ToggleStatus) // 切换启用状态
 			}
 
@@ -224,17 +257,17 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			announcements := protected.Group("/announcements")
 			{
 				announcements.GET("/active", announcementHandler.GetActiveAnnouncements) // 获取启用的公告
-				announcements.GET("/:id", announcementHandler.GetAnnouncement)         // 公告详情
+				announcements.GET("/:id", announcementHandler.GetAnnouncement)           // 公告详情
 			}
 
 			// 公告管理（管理员权限）
 			adminAnnouncements := protected.Group("/announcements")
 			adminAnnouncements.Use(middleware.RequireAdmin())
 			{
-				adminAnnouncements.GET("", announcementHandler.ListAnnouncements)           // 公告列表
-				adminAnnouncements.POST("", announcementHandler.CreateAnnouncement)         // 创建公告
-				adminAnnouncements.PUT("/:id", announcementHandler.UpdateAnnouncement)      // 更新公告
-				adminAnnouncements.DELETE("/:id", announcementHandler.DeleteAnnouncement)   // 删除公告
+				adminAnnouncements.GET("", announcementHandler.ListAnnouncements)         // 公告列表
+				adminAnnouncements.POST("", announcementHandler.CreateAnnouncement)       // 创建公告
+				adminAnnouncements.PUT("/:id", announcementHandler.UpdateAnnouncement)    // 更新公告
+				adminAnnouncements.DELETE("/:id", announcementHandler.DeleteAnnouncement) // 删除公告
 			}
 			// 认证相关
 			auth := protected.Group("/auth")
@@ -248,7 +281,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			materials := protected.Group("/materials")
 			{
 				// 公开接口（所有认证用户可访问）
-				materials.GET("", materialHandler.ListMaterials)           // 资料列表
+				materials.GET("", materialHandler.ListMaterials)          // 资料列表
 				materials.GET("/search", materialHandler.SearchMaterials) // 搜索资料
 				materials.GET("/:id", materialHandler.GetMaterial)        // 资料详情
 
@@ -265,16 +298,16 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 				// 学委及以上权限
 				committee := materials.Use(middleware.RequireCommittee())
 				{
-					committee.POST("", materialHandler.CreateMaterial)               // 创建资料
-					committee.PUT("/:id", materialHandler.UpdateMaterial)            // 更新资料
-					committee.POST("/upload-signature", materialHandler.GetUploadSignature) // 获取上传签名
+					committee.POST("", materialHandler.CreateMaterial)                          // 创建资料
+					committee.PUT("/:id", materialHandler.UpdateMaterial)                       // 更新资料
+					committee.POST("/upload-signature", materialHandler.GetUploadSignature)     // 获取上传签名
 					committee.POST("/delete-uploaded-file", materialHandler.DeleteUploadedFile) // 删除已上传文件
 				}
 
 				// 管理员权限
 				admin := materials.Use(middleware.RequireAdmin())
 				{
-					admin.DELETE("/:id", materialHandler.DeleteMaterial)    // 删除资料
+					admin.DELETE("/:id", materialHandler.DeleteMaterial)      // 删除资料
 					admin.POST("/:id/review", materialHandler.ReviewMaterial) // 审核资料
 				}
 			}
@@ -289,8 +322,8 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			adminReports := protected.Group("/admin/reports")
 			adminReports.Use(middleware.RequireAdmin())
 			{
-				adminReports.GET("", materialHandler.ListReports)             // 举报列表
-				adminReports.GET("/:id", materialHandler.GetReport)           // 举报详情
+				adminReports.GET("", materialHandler.ListReports)            // 举报列表
+				adminReports.GET("/:id", materialHandler.GetReport)          // 举报详情
 				adminReports.POST("/:id/handle", reviewHandler.HandleReport) // 处理举报
 			}
 
@@ -314,36 +347,36 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 				// 统计管理
 				statistics := admin.Group("/statistics")
 				{
-					statistics.GET("/overview", statisticsHandler.GetOverviewStatistics)      // 概览统计
-					statistics.GET("/users", statisticsHandler.GetUserStatistics)            // 用户统计
-					statistics.GET("/users/trend", statisticsHandler.GetUserTrend)            // 用户趋势
-					statistics.GET("/materials", statisticsHandler.GetMaterialStatistics)     // 资料统计
-					statistics.GET("/materials/trend", statisticsHandler.GetMaterialTrend)    // 资料趋势
-					statistics.GET("/downloads", statisticsHandler.GetDownloadStatistics)      // 下载统计
-					statistics.GET("/downloads/trend", statisticsHandler.GetDownloadTrend)     // 下载趋势
+					statistics.GET("/overview", statisticsHandler.GetOverviewStatistics)        // 概览统计
+					statistics.GET("/users", statisticsHandler.GetUserStatistics)               // 用户统计
+					statistics.GET("/users/trend", statisticsHandler.GetUserTrend)              // 用户趋势
+					statistics.GET("/materials", statisticsHandler.GetMaterialStatistics)       // 资料统计
+					statistics.GET("/materials/trend", statisticsHandler.GetMaterialTrend)      // 资料趋势
+					statistics.GET("/downloads", statisticsHandler.GetDownloadStatistics)       // 下载统计
+					statistics.GET("/downloads/trend", statisticsHandler.GetDownloadTrend)      // 下载趋势
 					statistics.GET("/applications", statisticsHandler.GetApplicationStatistics) // 申请统计
-					statistics.GET("/visits", statisticsHandler.GetVisitStatistics)            // 访问统计
-					statistics.GET("/visits/trend", statisticsHandler.GetVisitTrend)           // 访问趋势
+					statistics.GET("/visits", statisticsHandler.GetVisitStatistics)             // 访问统计
+					statistics.GET("/visits/trend", statisticsHandler.GetVisitTrend)            // 访问趋势
 				}
 
 				// 用户管理
 				users := admin.Group("/users")
 				{
-					users.GET("", adminHandler.ListUsers)                              // 用户列表
-					users.GET("/:id", adminHandler.GetUserDetail)                       // 用户详情
-					users.PUT("/:id", adminHandler.UpdateUserInfo)                      // 更新用户信息
-					users.PUT("/:id/status", adminHandler.UpdateUserStatus)             // 更新用户状态
-					users.DELETE("/:id", adminHandler.DeleteUser)                       // 删除用户
+					users.GET("", adminHandler.ListUsers)                   // 用户列表
+					users.GET("/:id", adminHandler.GetUserDetail)           // 用户详情
+					users.PUT("/:id", adminHandler.UpdateUserInfo)          // 更新用户信息
+					users.PUT("/:id/status", adminHandler.UpdateUserStatus) // 更新用户状态
+					users.DELETE("/:id", adminHandler.DeleteUser)           // 删除用户
 				}
 
 				// 系统配置管理
 				configs := admin.Group("/configs")
 				{
-					configs.GET("", adminHandler.ListSystemConfigs)                    // 配置列表
-					configs.POST("", adminHandler.CreateSystemConfig)                  // 创建配置
-					configs.GET("/:key", adminHandler.GetSystemConfig)                 // 获取配置
-					configs.PUT("", adminHandler.UpdateSystemConfig)                   // 更新配置
-					configs.DELETE("/:key", adminHandler.DeleteSystemConfig)           // 删除配置
+					configs.GET("", adminHandler.ListSystemConfigs)          // 配置列表
+					configs.POST("", adminHandler.CreateSystemConfig)        // 创建配置
+					configs.GET("/:key", adminHandler.GetSystemConfig)       // 获取配置
+					configs.PUT("", adminHandler.UpdateSystemConfig)         // 更新配置
+					configs.DELETE("/:key", adminHandler.DeleteSystemConfig) // 删除配置
 				}
 
 				// 学委申请列表
@@ -369,7 +402,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			// 通知相关
 			notifications := protected.Group("/notifications")
 			{
-				notifications.GET("", notificationHandler.ListNotifications)            // 通知列表
+				notifications.GET("", notificationHandler.ListNotifications)             // 通知列表
 				notifications.GET("/unread", notificationHandler.GetUnreadNotifications) // 未读通知
 				notifications.GET("/unread/count", notificationHandler.GetUnreadCount)   // 未读数量
 				notifications.POST("/:id/read", notificationHandler.MarkAsRead)          // 标记已读
@@ -380,16 +413,16 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			// 搜索和推荐相关
 			search := protected.Group("/search")
 			{
-				search.GET("", searchHandler.Search)                      // 搜索资料
-				search.GET("/hot-keywords", searchHandler.GetHotKeywords) // 热门搜索词
-				search.GET("/history", searchHandler.GetSearchHistory)    // 搜索历史
+				search.GET("", searchHandler.Search)                        // 搜索资料
+				search.GET("/hot-keywords", searchHandler.GetHotKeywords)   // 热门搜索词
+				search.GET("/history", searchHandler.GetSearchHistory)      // 搜索历史
 				search.DELETE("/history", searchHandler.ClearSearchHistory) // 清空搜索历史
 			}
 
 			// 推荐相关
 			recommendations := protected.Group("/materials")
 			{
-				recommendations.GET("/hot", searchHandler.GetHotMaterials)         // 热门资料
+				recommendations.GET("/hot", searchHandler.GetHotMaterials)          // 热门资料
 				recommendations.GET("/recommend", searchHandler.GetRecommendations) // 推荐资料
 			}
 

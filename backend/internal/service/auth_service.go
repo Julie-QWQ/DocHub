@@ -49,9 +49,9 @@ type AuthService interface {
 
 // authService 认证服务实现
 type authService struct {
-	userRepo      repository.UserRepository
-	jwtManager    *utils.JWTManager
-	redisClient   *redis.Client
+	userRepo             repository.UserRepository
+	jwtManager           *utils.JWTManager
+	redisClient          *redis.Client
 	tokenBlacklistPrefix string
 }
 
@@ -101,7 +101,7 @@ func (s *authService) Register(ctx context.Context, req *model.RegisterRequest) 
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
 		RealName:     req.RealName,
-		Role:         model.RoleStudent, // 默认角色为学生
+		Role:         model.RoleStudent,  // 默认角色为学生
 		Status:       model.StatusActive, // 默认状态为激活
 		Major:        req.Major,
 		Class:        req.Class,
@@ -143,6 +143,9 @@ func (s *authService) Login(ctx context.Context, req *model.LoginRequest) (*mode
 			return nil, fmt.Errorf("%w: %s", ErrUserDisabled, reason)
 		}
 		return nil, ErrUserDisabled
+	}
+	if user.Status == model.StatusInactive {
+		return nil, ErrUserInactive
 	}
 
 	// 生成 Token
@@ -220,6 +223,9 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*m
 			return nil, fmt.Errorf("%w: %s", ErrUserDisabled, reason)
 		}
 		return nil, ErrUserDisabled
+	}
+	if user.Status == model.StatusInactive {
+		return nil, ErrUserInactive
 	}
 
 	// 生成新的 Token 对

@@ -20,10 +20,11 @@ type Config struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port         int    `mapstructure:"port"`
-	Mode         string `mapstructure:"mode"`         // debug, release, test
-	ReadTimeout  int    `mapstructure:"read_timeout"`  // 秒
-	WriteTimeout int    `mapstructure:"write_timeout"` // 秒
+	Port             int      `mapstructure:"port"`
+	Mode             string   `mapstructure:"mode"`          // debug, release, test
+	ReadTimeout      int      `mapstructure:"read_timeout"`  // 秒
+	WriteTimeout     int      `mapstructure:"write_timeout"` // 秒
+	CORSAllowOrigins []string `mapstructure:"cors_allow_origins"`
 }
 
 // DatabaseConfig 数据库配置
@@ -33,6 +34,7 @@ type DatabaseConfig struct {
 	User         string `mapstructure:"user"`
 	Password     string `mapstructure:"password"`
 	DBName       string `mapstructure:"dbname"`
+	SSLMode      string `mapstructure:"sslmode"`
 	MaxOpenConns int    `mapstructure:"max_open_conns"`
 	MaxIdleConns int    `mapstructure:"max_idle_conns"`
 }
@@ -53,7 +55,7 @@ type JWTConfig struct {
 
 // OSSConfig OSS配置
 type OSSConfig struct {
-	Provider   string `mapstructure:"provider"`   // minio, aliyun
+	Provider   string `mapstructure:"provider"` // minio, aliyun
 	Endpoint   string `mapstructure:"endpoint"`
 	AccessKey  string `mapstructure:"access_key"`
 	SecretKey  string `mapstructure:"secret_key"`
@@ -69,15 +71,16 @@ type SMTPConfig struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
 	From     string `mapstructure:"from"`
+	TLSMode  string `mapstructure:"tls_mode"` // tls, starttls, none
 }
 
 // LogConfig 日志配置
 type LogConfig struct {
-	Level      string `mapstructure:"level"`       // debug, info, warn, error
+	Level      string `mapstructure:"level"` // debug, info, warn, error
 	Filename   string `mapstructure:"filename"`
-	MaxSize    int    `mapstructure:"max_size"`    // MB
+	MaxSize    int    `mapstructure:"max_size"` // MB
 	MaxBackups int    `mapstructure:"max_backups"`
-	MaxAge     int    `mapstructure:"max_age"`     // days
+	MaxAge     int    `mapstructure:"max_age"` // days
 }
 
 var globalConfig *Config
@@ -116,9 +119,13 @@ func Get() *Config {
 
 // GetDSN 获取数据库连接字符串
 func (c *DatabaseConfig) GetDSN() string {
+	sslMode := c.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Shanghai",
-		c.Host, c.Port, c.User, c.Password, c.DBName,
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=Asia/Shanghai",
+		c.Host, c.Port, c.User, c.Password, c.DBName, sslMode,
 	)
 }
 

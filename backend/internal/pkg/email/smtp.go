@@ -14,6 +14,7 @@ type SMTPConfig struct {
 	Username string // 发件人邮箱
 	Password string // 邮箱密码或授权码
 	From     string // 发件人名称
+	TLSMode  string // tls, starttls, none
 }
 
 // SMTPClient SMTP客户端
@@ -28,6 +29,53 @@ func NewSMTPClient(config *SMTPConfig) *SMTPClient {
 	return &SMTPClient{
 		config: config,
 		auth:   auth,
+	}
+}
+
+func (c *SMTPClient) newClient() (*smtp.Client, error) {
+	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
+	mode := strings.ToLower(strings.TrimSpace(c.config.TLSMode))
+
+	switch mode {
+	case "", "starttls":
+		client, err := smtp.Dial(addr)
+		if err != nil {
+			return nil, fmt.Errorf("连接SMTP服务器失败: %w", err)
+		}
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			tlsconfig := &tls.Config{
+				ServerName: c.config.Host,
+			}
+			if err := client.StartTLS(tlsconfig); err != nil {
+				_ = client.Close()
+				return nil, fmt.Errorf("启动STARTTLS失败: %w", err)
+			}
+		} else if mode == "starttls" {
+			_ = client.Close()
+			return nil, fmt.Errorf("SMTP服务器不支持STARTTLS")
+		}
+		return client, nil
+	case "tls", "ssl":
+		tlsconfig := &tls.Config{
+			ServerName: c.config.Host,
+		}
+		conn, err := tls.Dial("tcp", addr, tlsconfig)
+		if err != nil {
+			return nil, fmt.Errorf("连接SMTP服务器失败: %w", err)
+		}
+		client, err := smtp.NewClient(conn, c.config.Host)
+		if err != nil {
+			return nil, fmt.Errorf("创建SMTP客户端失败: %w", err)
+		}
+		return client, nil
+	case "none":
+		client, err := smtp.Dial(addr)
+		if err != nil {
+			return nil, fmt.Errorf("连接SMTP服务器失败: %w", err)
+		}
+		return client, nil
+	default:
+		return nil, fmt.Errorf("未知的TLS模式: %s", c.config.TLSMode)
 	}
 }
 
@@ -104,30 +152,20 @@ func (c *SMTPClient) SendVerificationCode(toEmail, code string, purpose string) 
 	}
 
 	// 构建邮件内容
-	message := fmt.Sprintf("From: %s\r\n", c.config.Username)
+	from := c.config.Username
+	if strings.TrimSpace(c.config.From) != "" {
+		from = fmt.Sprintf("%s <%s>", c.config.From, c.config.Username)
+	}
+	message := fmt.Sprintf("From: %s\r\n", from)
 	message += fmt.Sprintf("To: %s\r\n", toEmail)
 	message += fmt.Sprintf("Subject: %s\r\n", subject)
 	message += "MIME-Version: 1.0\r\n"
 	message += "Content-Type: text/html; charset=UTF-8\r\n\r\n"
 	message += body
 
-	// 发送邮件
-	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
-
-	// 使用TLS加密连接
-	tlsconfig := &tls.Config{
-		InsecureSkipVerify: false,
-		ServerName:         c.config.Host,
-	}
-
-	conn, err := tls.Dial("tcp", addr, tlsconfig)
+	client, err := c.newClient()
 	if err != nil {
-		return fmt.Errorf("连接SMTP服务器失败: %w", err)
-	}
-
-	client, err := smtp.NewClient(conn, c.config.Host)
-	if err != nil {
-		return fmt.Errorf("创建SMTP客户端失败: %w", err)
+		return err
 	}
 	defer client.Close()
 
@@ -163,28 +201,19 @@ func (c *SMTPClient) SendVerificationCode(toEmail, code string, purpose string) 
 
 // SendGenericEmail 发送普通邮件
 func (c *SMTPClient) SendGenericEmail(toEmail, subject, htmlBody string) error {
-	message := fmt.Sprintf("From: %s\r\n", c.config.Username)
+	from := c.config.Username
+	if strings.TrimSpace(c.config.From) != "" {
+		from = fmt.Sprintf("%s <%s>", c.config.From, c.config.Username)
+	}
+	message := fmt.Sprintf("From: %s\r\n", from)
 	message += fmt.Sprintf("To: %s\r\n", toEmail)
 	message += fmt.Sprintf("Subject: %s\r\n", subject)
 	message += "MIME-Version: 1.0\r\n"
 	message += "Content-Type: text/html; charset=UTF-8\r\n\r\n"
 	message += htmlBody
-
-	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
-
-	tlsconfig := &tls.Config{
-		InsecureSkipVerify: false,
-		ServerName:         c.config.Host,
-	}
-
-	conn, err := tls.Dial("tcp", addr, tlsconfig)
+	client, err := c.newClient()
 	if err != nil {
-		return fmt.Errorf("连接SMTP服务器失败: %w", err)
-	}
-
-	client, err := smtp.NewClient(conn, c.config.Host)
-	if err != nil {
-		return fmt.Errorf("创建SMTP客户端失败: %w", err)
+		return err
 	}
 	defer client.Close()
 

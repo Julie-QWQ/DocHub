@@ -3,6 +3,8 @@ server:
   mode: release
   read_timeout: 10
   write_timeout: 10
+  cors_allow_origins:
+    - "https://your-domain.com"
 
 database:
   host: postgres
@@ -10,6 +12,7 @@ database:
   user: study_upc
   password: your_strong_password_here_change_in_production
   dbname: study_upc
+  sslmode: require
   max_open_conns: 10
   max_idle_conns: 5
 
@@ -31,6 +34,14 @@ oss:
   bucket_name: "study-upc"
   region: "oss-cn-hangzhou"
   use_ssl: true
+
+smtp:
+  host: "smtp.example.com"
+  port: 587
+  username: "your_email@example.com"
+  password: "your_smtp_password"
+  from: "UPC-DocHub"
+  tls_mode: "starttls"
 
 log:
   level: info

@@ -3,13 +3,17 @@ server:
   mode: debug
   read_timeout: 10
   write_timeout: 10
+  cors_allow_origins:
+    - "http://localhost:3000"
+    - "http://127.0.0.1:3000"
 
 database:
   host: localhost
   port: 5432
   user: julie
-  password: 114514
+  password: your_password
   dbname: upc_study
+  sslmode: disable
   max_open_conns: 10
   max_idle_conns: 5
 
@@ -37,7 +41,8 @@ smtp:
   port: 587
   username: "your_email@qq.com"
   password: "your_smtp_password"
-  from: "UPC-Study"
+  from: "UPC-DocHub"
+  tls_mode: "starttls"
 
 log:
   level: debug
