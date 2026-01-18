@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useMaterialStore } from '@/stores/material'
 import { useAuthStore } from '@/stores/auth'
 import MaterialCard from '@/components/material/MaterialCard.vue'
 import AnnouncementBoard from '@/components/layout/AnnouncementBoard.vue'
 import type { MaterialListParams } from '@/types'
 
+const route = useRoute()
 const materialStore = useMaterialStore()
 const authStore = useAuthStore()
 
@@ -15,15 +17,15 @@ const filters = ref<MaterialListParams>({
   size: 20,
   sort_by: 'created_at',
   order: 'desc',
-  uploader_id: undefined // 明确设置为 undefined,防止从"我的资料"切换过来时残留
+  uploader_id: undefined
 })
 
 // 判断用户是否可以上传资料(学委或管理员)
 const canUploadMaterial = computed(() => authStore.isCommittee)
 
-// 加载资料列表
-const loadMaterials = async () => {
-  await materialStore.fetchMaterials(filters.value)
+// 加载资料列表（不阻塞渲染）
+const loadMaterials = () => {
+  materialStore.fetchMaterials(filters.value)
 }
 
 // 处理页码变化
@@ -33,9 +35,20 @@ const handlePageChange = (page: number) => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-onMounted(() => {
-  loadMaterials()
-})
+// 监听路由变化，重新加载数据（立即执行，不等待）
+watch(() => route.path, () => {
+  if (route.name === 'Materials') {
+    // 重置筛选条件
+    filters.value = {
+      page: 1,
+      size: 20,
+      sort_by: 'created_at',
+      order: 'desc',
+      uploader_id: undefined
+    }
+    loadMaterials()
+  }
+}, { immediate: true })
 </script>
 
 <template>

@@ -26,14 +26,20 @@ export default defineConfig({
     // 代码分割优化
     rollupOptions: {
       output: {
-        // 手动分包优化
-        manualChunks: {
+        // 动态代码分割 - 更细粒度的分包
+        manualChunks(id) {
           // Vue 核心库
-          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          if (id.includes('node_modules/vue/') || id.includes('node_modules/@vue/') || id.includes('node_modules/pinia/')) {
+            return 'vue-vendor'
+          }
           // Element Plus UI 库
-          'element-plus': ['element-plus', '@element-plus/icons-vue'],
+          if (id.includes('node_modules/element-plus/') || id.includes('node_modules/@element-plus/')) {
+            return 'element-plus'
+          }
           // 其他第三方库
-          'vendor': ['axios', 'dayjs', 'echarts', 'vee-validate', 'yup']
+          if (id.includes('node_modules/')) {
+            return 'vendor'
+          }
         },
         // chunk 文件命名
         chunkFileNames: 'js/[name]-[hash].js',
