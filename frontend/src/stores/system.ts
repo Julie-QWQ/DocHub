@@ -5,7 +5,7 @@ import { getPublicSystemConfigs } from '@/api/system'
 export const useSystemStore = defineStore('system', () => {
   // 系统配置
   const configs = ref<Record<string, string>>({
-    site_name: 'Study-UPC',
+    site_name: 'UPC-DocHub',
     site_description: '学院学习资料托管平台',
     maintenance_mode: 'false'
   })
@@ -39,7 +39,7 @@ export const useSystemStore = defineStore('system', () => {
    * 更新页面标题
    */
   function updatePageTitle() {
-    const siteName = configs.value.site_name || 'Study-UPC'
+    const siteName = configs.value.site_name || 'UPC-DocHub'
     document.title = `${siteName} - 学习资料托管平台`
   }
 

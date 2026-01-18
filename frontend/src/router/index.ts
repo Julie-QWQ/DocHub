@@ -180,16 +180,23 @@ const router = createRouter({
   routes
 })
 
+// 用于跟踪认证状态是否已初始化
+let authInitialized = false
+
 // 路由守卫
 router.beforeEach((to, from, next) => {
   // 设置页面标题
   document.title = `${to.meta.title || 'UPC-DocHub'} | UPC-DocHub`
 
-  // 初始化认证状态
-  const authStore = useAuthStore()
-  authStore.initAuth()
+  // 仅在首次访问时初始化认证状态
+  if (!authInitialized) {
+    const authStore = useAuthStore()
+    authStore.initAuth()
+    authInitialized = true
+  }
 
-  // 检查是否需要认证
+  // 获取认证状态（不重复初始化）
+  const authStore = useAuthStore()
   const requiresAuth = to.meta.requiresAuth !== false
   const isLoggedIn = authStore.isLoggedIn
 

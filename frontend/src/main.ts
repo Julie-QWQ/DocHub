@@ -26,8 +26,9 @@ app.use(ElementPlus, {
   locale: zhCn
 })
 
-// 在挂载前加载系统配置
+// 挂载应用（不等待系统配置加载，避免阻塞）
+app.mount('#app')
+
+// 异步加载系统配置（不阻塞应用挂载）
 const systemStore = useSystemStore()
-systemStore.loadConfigs().then(() => {
-  app.mount('#app')
-})
+systemStore.loadConfigs()
