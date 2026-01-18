@@ -140,9 +140,6 @@ onMounted(() => {
           <h2>暂无申请记录</h2>
           <p>您还没有提交过学习委员申请</p>
           <button class="apply-btn-large" @click="handleApply">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
             立即申请
           </button>
         </div>
@@ -356,26 +353,27 @@ onMounted(() => {
   }
 
   .apply-btn-large {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 24px;
+    display: inline-block;
+    padding: 14px 32px;
     background: #1a1a1a;
     color: #ffffff;
     border: none;
     border-radius: 8px;
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
     &:hover {
       background: #333;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
-    svg {
-      width: 18px;
-      height: 18px;
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
   }
 }
