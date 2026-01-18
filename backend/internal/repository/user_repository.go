@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/study-upc/backend/internal/model"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -17,18 +18,28 @@ var (
 
 // UserRepository 用户数据访问层接口
 type UserRepository interface {
-	// CreateUser 创建用户
+	// Create 创建用户
+	Create(ctx context.Context, user *model.User) error
+	// CreateUser 创建用户(兼容旧方法)
 	CreateUser(ctx context.Context, user *model.User) error
 	// FindByID 根据ID查找用户
 	FindByID(ctx context.Context, id uint) (*model.User, error)
+	// GetByUsername 根据用户名查找用户(新增)
+	GetByUsername(ctx context.Context, username string) (*model.User, error)
 	// FindByUsername 根据用户名查找用户
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
+	// GetByEmail 根据邮箱查找用户(新增)
+	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	// FindByEmail 根据邮箱查找用户
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 	// UpdateUser 更新用户信息
 	UpdateUser(ctx context.Context, user *model.User) error
+	// Update 更新用户信息(新增)
+	Update(ctx context.Context, user *model.User) error
 	// UpdatePassword 更新用户密码
 	UpdatePassword(ctx context.Context, userID uint, hashedPassword string) error
+	// VerifyPassword 验证密码(新增)
+	VerifyPassword(ctx context.Context, userID uint, password string) error
 	// UpdateLastLogin 更新最后登录时间
 	UpdateLastLogin(ctx context.Context, userID uint) error
 	// ListUsers 分页获取用户列表
@@ -56,6 +67,25 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 	result := r.db.WithContext(ctx).Create(user)
 	if result.Error != nil {
 		// 检查是否是唯一索引冲突
+		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+			return ErrUserAlreadyExists
+		}
+		return result.Error
+	}
+	return nil
+}
+
+// Create 创建用户(新方法,自动处理密码加密)
+func (r *userRepository) Create(ctx context.Context, user *model.User) error {
+	// 对密码进行加密
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	user.PasswordHash = string(hashedPassword)
+
+	result := r.db.WithContext(ctx).Create(user)
+	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 			return ErrUserAlreadyExists
 		}
@@ -107,6 +137,57 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*model.
 func (r *userRepository) UpdateUser(ctx context.Context, user *model.User) error {
 	result := r.db.WithContext(ctx).Save(user)
 	return result.Error
+}
+
+// Update 更新用户信息(新方法)
+func (r *userRepository) Update(ctx context.Context, user *model.User) error {
+	result := r.db.WithContext(ctx).Save(user)
+	return result.Error
+}
+
+// GetByUsername 根据用户名查找用户(新方法)
+func (r *userRepository) GetByUsername(ctx context.Context, username string) (*model.User, error) {
+	var user model.User
+	result := r.db.WithContext(ctx).Where("username = ?", username).First(&user)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, result.Error
+	}
+	return &user, nil
+}
+
+// GetByEmail 根据邮箱查找用户(新方法)
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
+	var user model.User
+	result := r.db.WithContext(ctx).Where("email = ?", email).First(&user)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, result.Error
+	}
+	return &user, nil
+}
+
+// VerifyPassword 验证密码(新方法)
+func (r *userRepository) VerifyPassword(ctx context.Context, userID uint, password string) error {
+	var user model.User
+	result := r.db.WithContext(ctx).First(&user, userID)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return ErrUserNotFound
+		}
+		return result.Error
+	}
+
+	// 验证密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return errors.New("密码错误")
+	}
+
+	return nil
 }
 
 // UpdatePassword 更新用户密码

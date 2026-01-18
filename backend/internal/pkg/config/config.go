@@ -14,6 +14,7 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	OSS      OSSConfig      `mapstructure:"oss"`
+	SMTP     SMTPConfig     `mapstructure:"smtp"`
 	Log      LogConfig      `mapstructure:"log"`
 }
 
@@ -59,6 +60,15 @@ type OSSConfig struct {
 	BucketName string `mapstructure:"bucket_name"`
 	Region     string `mapstructure:"region"`
 	UseSSL     bool   `mapstructure:"use_ssl"`
+}
+
+// SMTPConfig SMTP邮件配置
+type SMTPConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
 }
 
 // LogConfig 日志配置

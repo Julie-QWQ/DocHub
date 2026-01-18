@@ -32,6 +32,13 @@ oss:
   region: ""
   use_ssl: false
 
+smtp:
+  host: "smtp.qq.com"
+  port: 587
+  username: "your_email@qq.com"
+  password: "your_smtp_password"
+  from: "UPC-Study"
+
 log:
   level: debug
   filename: "logs/app.log"

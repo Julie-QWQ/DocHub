@@ -1,19 +1,28 @@
+import { computed, type Ref } from 'vue'
 import { useForm, useField } from 'vee-validate'
 import * as yup from 'yup'
 
 /**
  * 登录表单验证
  */
-export function useLoginForm() {
-  const schema = yup.object({
-    username: yup.string()
+export function useLoginForm(loginMethod?: Ref<'username' | 'email'>) {
+  const schema = computed(() => {
+    const usernameSchema = yup.string()
       .required('请输入用户名或邮箱')
       .min(3, '用户名至少3个字符')
-      .max(50, '用户名最多50个字符'),
-    password: yup.string()
-      .required('请输入密码')
-      .min(6, '密码至少6个字符')
-      .max(50, '密码最多50个字符')
+      .max(50, '用户名最多50个字符')
+
+    const passwordSchema = loginMethod?.value === 'email'
+      ? yup.string().notRequired()
+      : yup.string()
+        .required('请输入密码')
+        .min(6, '密码至少6个字符')
+        .max(50, '密码最多50个字符')
+
+    return yup.object({
+      username: usernameSchema,
+      password: passwordSchema
+    })
   })
 
   const { handleSubmit, errors, isSubmitting } = useForm({

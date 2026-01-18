@@ -13,6 +13,7 @@ import (
 	"github.com/study-upc/backend/internal/middleware"
 	"github.com/study-upc/backend/internal/pkg/config"
 	"github.com/study-upc/backend/internal/pkg/database"
+	"github.com/study-upc/backend/internal/pkg/email"
 	"github.com/study-upc/backend/internal/pkg/logger"
 	"github.com/study-upc/backend/internal/pkg/oss"
 	"github.com/study-upc/backend/internal/pkg/utils"
@@ -66,6 +67,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	statisticsRepo := repository.NewStatisticsRepository(db)
 	adminRepo := repository.NewAdminRepository(db)
 	announcementRepo := repository.NewAnnouncementRepository(db)
+	emailVerificationRepo := repository.NewEmailVerificationRepository(db)
 
 	// 初始化 OSS 服务
 	ossClient, err := oss.NewMinIOClient(&oss.MinIOConfig{
@@ -89,8 +91,18 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// 最大文件大小 512MB，上传签名 1 小时有效期，下载签名 24 小时有效期
 	ossService := oss.NewOSSService(ossClient, 536870912, 1*time.Hour, 24*time.Hour)
 
+	// 初始化 SMTP 邮件客户端
+	smtpClient := email.NewSMTPClient(&email.SMTPConfig{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+	})
+
 	// 初始化 Service 层
 	authService := service.NewAuthService(userRepo, jwtManager, redisClient)
+	emailVerificationService := service.NewEmailVerificationService(userRepo, emailVerificationRepo, smtpClient)
 	materialService := service.NewMaterialService(materialRepo, favoriteRepo, downloadRepo, materialCategoryRepo, adminRepo, ossService, redisClient)
 	materialCategoryService := service.NewMaterialCategoryService(materialCategoryRepo)
 	favoriteService := service.NewFavoriteService(favoriteRepo, materialRepo)
@@ -113,6 +125,11 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 
 	// 初始化 Handler 层
 	authHandler := handler.NewAuthHandler(authService, statisticsService)
+	emailVerificationHandler := handler.NewEmailVerificationHandler(emailVerificationService, jwtManager)
+
+	// 设置邮箱验证服务和 JWT 管理器到 AuthHandler（解决循环依赖）
+	authHandler.SetEmailVerificationService(emailVerificationService)
+	authHandler.SetJWTManager(jwtManager)
 	materialHandler := handler.NewMaterialHandler(materialService, favoriteService, reportService, downloadRepo)
 	materialCategoryHandler := handler.NewMaterialCategoryHandler(materialCategoryService)
 	committeeHandler := handler.NewCommitteeHandler(committeeService)
@@ -157,9 +174,20 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			auth := public.Group("/auth")
 			{
 				// 登录限流中间件：每个 IP 每小时最多 20 次，每个用户名每 15 分钟最多 5 次
-				auth.POST("/login", middleware.LoginRateLimit(redisClient, 20, 5), authHandler.Login)
-				auth.POST("/register", authHandler.Register)
+				if cfg.Server.Mode == "debug" {
+					auth.POST("/login", authHandler.Login)
+				} else {
+					auth.POST("/login", middleware.LoginRateLimit(redisClient, 20, 5), authHandler.Login)
+				}
+				auth.POST("/register", emailVerificationHandler.RegisterWithCode) // 使用邮箱验证码注册
 				auth.POST("/refresh", authHandler.RefreshToken)
+			}
+
+			// 邮箱验证相关
+			verification := public.Group("/verification")
+			{
+				verification.POST("/send", emailVerificationHandler.SendVerificationCode) // 发送验证码
+				verification.POST("/verify", emailVerificationHandler.VerifyCode)         // 验证验证码
 			}
 
 			// 系统配置（公开）

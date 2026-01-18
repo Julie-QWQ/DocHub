@@ -38,15 +38,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import LoginForm from '@/components/LoginForm.vue'
 import SiteName from '@/components/SiteName.vue'
 import { useSystemStore } from '@/stores/system'
 
 const systemStore = useSystemStore()
 const siteDescription = computed(() => systemStore.getConfig('site_description', '学院学习资料托管平台'))
+const router = useRouter()
+const route = useRoute()
 
 const handleLoginSuccess = () => {
-  // 登录成功后由 composable 处理跳转
+  const redirect = route.query.redirect as string
+  router.push(redirect || '/materials')
 }
 </script>
 

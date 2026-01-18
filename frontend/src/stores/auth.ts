@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import { storage } from '@/utils/storage'
-import type { UserInfo, LoginRequest, RegisterRequest, ChangePasswordRequest } from '@/types'
+import type { UserInfo, LoginRequest, LoginResponse, RegisterRequest, ChangePasswordRequest } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { RESPONSE_CODE } from '@/utils/constants'
 
@@ -65,33 +65,37 @@ export const useAuthStore = defineStore('auth', () => {
     storage.clearAuth()
   }
 
+  const applyLoginResponse = (payload: LoginResponse) => {
+    const { user: userInfo, access_token, refresh_token, expires_in } = payload
+
+    saveAuth(userInfo, access_token, refresh_token, expires_in)
+
+    ElMessage.success('登录成功')
+
+    // 异步记录访问日志（登录成功时记录一次访问）
+    fetch('/api/v1/statistics/page-view', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${access_token}`
+      },
+      body: JSON.stringify({
+        path: '/login',
+        referer: undefined
+      }),
+      keepalive: true
+    }).catch((error) => {
+      console.error('[登录访问记录失败]', error)
+    })
+
+    return true
+  }
+
   // 登录
   const login = async (credentials: LoginRequest) => {
     try {
       const response = await authApi.login(credentials)
-      const { user: userInfo, access_token, refresh_token, expires_in } = response.data
-
-      saveAuth(userInfo, access_token, refresh_token, expires_in)
-
-      ElMessage.success('登录成功')
-
-      // 异步记录访问日志（登录成功时记录一次访问）
-      fetch('/api/v1/statistics/page-view', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${access_token}`
-        },
-        body: JSON.stringify({
-          path: '/login',
-          referer: undefined
-        }),
-        keepalive: true
-      }).catch((error) => {
-        console.error('[登录访问记录失败]', error)
-      })
-
-      return true
+      return applyLoginResponse(response.data)
     } catch (error: any) {
       if (error?.code === RESPONSE_CODE.USER_DISABLED) {
         const message = error?.message || '该账号已被封禁，请联系管理员。'
@@ -206,6 +210,7 @@ export const useAuthStore = defineStore('auth', () => {
     changePassword,
     fetchUserInfo,
     hasRole,
-    clearAuth
+    clearAuth,
+    applyLoginResponse
   }
 })

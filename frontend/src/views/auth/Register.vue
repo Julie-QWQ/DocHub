@@ -38,15 +38,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import RegisterForm from '@/components/RegisterForm.vue'
 import SiteName from '@/components/SiteName.vue'
 import { useSystemStore } from '@/stores/system'
 
 const systemStore = useSystemStore()
 const siteDescription = computed(() => systemStore.getConfig('site_description', '学院学习资料托管平台'))
+const router = useRouter()
 
 const handleRegisterSuccess = () => {
-  // 注册成功后由 composable 处理跳转
+  router.push('/login')
 }
 </script>
 

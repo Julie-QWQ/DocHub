@@ -19,8 +19,9 @@ const (
 type UserStatus string
 
 const (
-	StatusActive UserStatus = "active" // 正常
-	StatusBanned UserStatus = "banned" // 封禁
+	StatusActive     UserStatus = "active"     // 正常
+	StatusBanned     UserStatus = "banned"     // 封禁
+	StatusInactive   UserStatus = "inactive"   // 未激活
 )
 
 // User 用户模型
@@ -41,7 +42,8 @@ type User struct {
 	Phone    string     `gorm:"type:varchar(20)" json:"phone"`                                 // 联系电话
 	Major    string     `gorm:"type:varchar(100)" json:"major"`                                // 专业
 	Class    string     `gorm:"type:varchar(50)" json:"class"`                                 // 班级
-	LastLoginAt *time.Time `json:"last_login_at"`                                              // 最后登录时间
+	LastLoginAt *time.Time `json:"last_login_at"`                                             // 最后登录时间
+	EmailVerified bool     `gorm:"default:false" json:"email_verified"`                       // 邮箱是否已验证
 }
 
 // TableName 指定表名

@@ -10,3 +10,5 @@ backend/configs/*.local.yaml
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+docs/

@@ -6,6 +6,7 @@ import (
 
 	"github.com/study-upc/backend/internal/model"
 	"github.com/study-upc/backend/internal/pkg/response"
+	"github.com/study-upc/backend/internal/pkg/utils"
 	"github.com/study-upc/backend/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -13,16 +14,31 @@ import (
 
 // AuthHandler 认证处理器
 type AuthHandler struct {
-	authService     service.AuthService
-	statisticsService service.StatisticsService
+	authService            service.AuthService
+	emailVerificationService service.EmailVerificationService
+	statisticsService      service.StatisticsService
+	jwtManager            *utils.JWTManager
 }
 
 // NewAuthHandler 创建认证处理器实例
-func NewAuthHandler(authService service.AuthService, statisticsService service.StatisticsService) *AuthHandler {
+func NewAuthHandler(
+	authService service.AuthService,
+	statisticsService service.StatisticsService,
+) *AuthHandler {
 	return &AuthHandler{
 		authService:       authService,
 		statisticsService: statisticsService,
 	}
+}
+
+// SetEmailVerificationService 设置邮箱验证服务（解决循环依赖）
+func (h *AuthHandler) SetEmailVerificationService(emailVerificationService service.EmailVerificationService) {
+	h.emailVerificationService = emailVerificationService
+}
+
+// SetJWTManager 设置 JWT 管理器（解决循环依赖）
+func (h *AuthHandler) SetJWTManager(jwtManager *utils.JWTManager) {
+	h.jwtManager = jwtManager
 }
 
 // Register 用户注册
@@ -57,7 +73,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 // Login 用户登录
 // @Summary 用户登录
-// @Description 用户登录获取 Token
+// @Description 用户登录获取 Token（支持用户名登录或邮箱验证码登录）
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -65,27 +81,81 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Success 200 {object} response.Response{data=model.LoginResponse}
 // @Router /api/v1/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req model.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// 尝试解析为带验证码的登录请求
+	var loginWithCodeReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Code     string `json:"code"`
+		Username string `json:"username"`
+	}
+
+	if err := c.ShouldBindJSON(&loginWithCodeReq); err != nil {
 		response.Error(c, response.ErrInvalidParams, err.Error())
 		return
 	}
 
-	loginResp, err := h.authService.Login(c.Request.Context(), &req)
-	if err != nil {
-		// 记录登录失败的日志
-		_ = h.statisticsService.RecordLoginLog(0, c.ClientIP(), c.Request.UserAgent(), false)
+	var loginResp *model.LoginResponse
+	var err error
 
-		if errors.Is(err, service.ErrInvalidCredentials) {
-			response.Error(c, response.ErrInvalidCredentials, err.Error())
+	// 如果有验证码，使用邮箱验证码登录
+	if loginWithCodeReq.Code != "" {
+		// 验证邮箱格式
+		if loginWithCodeReq.Email == "" {
+			response.Error(c, response.ErrInvalidParams, "使用验证码登录时必须提供邮箱")
 			return
 		}
-		if errors.Is(err, service.ErrUserDisabled) {
-			response.Error(c, response.ErrUserDisabled, err.Error())
+
+		// 使用邮箱验证码登录
+		_, user, loginErr := h.emailVerificationService.LoginWithEmailCode(
+			c.Request.Context(),
+			loginWithCodeReq.Email,
+			loginWithCodeReq.Password,
+			loginWithCodeReq.Code,
+		)
+		if loginErr != nil {
+			// 记录登录失败的日志
+			_ = h.statisticsService.RecordLoginLog(0, c.ClientIP(), c.Request.UserAgent(), false)
+
+			response.Error(c, response.ErrInvalidCredentials, loginErr.Error())
 			return
 		}
-		response.Error(c, response.ErrInternal, err.Error())
-		return
+
+		// 生成 Token
+		accessToken, refreshToken, err := h.jwtManager.GenerateTokenPair(user.ID, string(user.Role))
+		if err != nil {
+			response.Error(c, response.ErrInternal, "生成token失败")
+			return
+		}
+
+		loginResp = &model.LoginResponse{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresIn:    h.jwtManager.GetAccessTTL(),
+			User:         user.ToUserInfo(),
+		}
+	} else {
+		// 普通登录
+		req := model.LoginRequest{
+			Username: loginWithCodeReq.Username,
+			Password: loginWithCodeReq.Password,
+		}
+
+		loginResp, err = h.authService.Login(c.Request.Context(), &req)
+		if err != nil {
+			// 记录登录失败的日志
+			_ = h.statisticsService.RecordLoginLog(0, c.ClientIP(), c.Request.UserAgent(), false)
+
+			if errors.Is(err, service.ErrInvalidCredentials) {
+				response.Error(c, response.ErrInvalidCredentials, err.Error())
+				return
+			}
+			if errors.Is(err, service.ErrUserDisabled) {
+				response.Error(c, response.ErrUserDisabled, err.Error())
+				return
+			}
+			response.Error(c, response.ErrInternal, err.Error())
+			return
+		}
 	}
 
 	// 记录登录成功的日志（异步，不影响登录流程）
