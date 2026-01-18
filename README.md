@@ -90,10 +90,6 @@ Handler (HTTP 层) → Service (业务逻辑层) → Repository (数据访问层
 
 ## 🚀 快速启动
 
-### Windows 下 Docker 开发环境
-
-使用 scripts/docker-up.bat 一键启动所有服务（PostgreSQL、Redis、MinIO）
-
 ### 本地开发
 
 #### 1. 环境准备
@@ -104,7 +100,15 @@ Handler (HTTP 层) → Service (业务逻辑层) → Repository (数据访问层
 - Redis 7+
 - MinIO
 
-#### 2. 后端配置
+#### 2. 中间件容器启动
+
+使用 scripts/docker-up.bat 一键启动所有服务（PostgreSQL、Redis、MinIO）
+
+```bash
+./scripts/docker-up.bat
+```
+
+#### 3. 后端启动
 
 ```bash
 cd backend
@@ -115,7 +119,7 @@ go run cmd/server/main.go
 
 后端服务将运行在 `http://localhost:8080`
 
-#### 3. 前端启动
+#### 4. 前端启动
 
 ```bash
 cd frontend
@@ -261,8 +265,6 @@ sudo nginx -t && sudo systemctl reload nginx
 
 所有表都有 `created_at` 和 `updated_at` 字段。
 
-详细设计见: [数据库设计文档](docs/02-数据库设计.md)
-
 ## 🌐 API 设计
 
 RESTful API 设计,统一响应格式:
@@ -287,8 +289,6 @@ RESTful API 设计,统一响应格式:
 }
 ```
 
-详细 API 文档见: [API 接口设计](docs/03-API接口设计.md)
-
 ## 🔒 安全措施
 
 1. **认证**: JWT token + Redis 黑名单
@@ -297,90 +297,19 @@ RESTful API 设计,统一响应格式:
 4. **限流**: 登录尝试限制、下载频率限制
 5. **输入验证**: Go validator 服务端验证 + VeeValidate 客户端验证
 
-## 📈 项目进度
-
-当前处于 **Phase 1: 基础框架搭建** 阶段。
-
-核心模块完成度:
-
-- 基础框架: 30%
-- 用户认证: 0%
-- 资料管理: 0%
-- 审核流程: 0%
-- 检索推荐: 0%
-- 通知系统: 0%
-- 管理后台: 0%
-
-详细开发计划见: [项目开发计划](docs/项目开发计划.md)
-
 ## 🧰 脚本说明
 
-### 构建脚本
+### 生产环境部署脚本
 
-- [`scripts/build.sh`](scripts/build.sh) - 构建前后端
-- [`scripts/install.sh`](scripts/install.sh) - 安装前端依赖
+- [`scripts/deploy.sh`](scripts/deploy.sh) - 服务器一键部署脚本
 
-### Docker 脚本
+### 开发环境 Docker 脚本
 
-- [`scripts/dev.sh`](scripts/dev.sh) / [`scripts/dev.bat`](scripts/dev.bat) - Docker 开发环境启动
 - [`scripts/docker-up.bat`](scripts/docker-up.bat) - Windows Docker 服务启动
 - [`scripts/docker-down.bat`](scripts/docker-down.bat) - Windows Docker 服务停止
 
-### 系统配置脚本
+### 生产环境系统配置脚本
 
-- `scripts/setup-postgres.sh` - 初始化 PostgreSQL 用户与数据库
 - `scripts/setup-redis.sh` - 设置 Redis 密码并限制本机访问
-- `scripts/setup-nginx.sh` - 生成 Nginx 站点配置并热加载
-
-## 📚 文档
-
-详细设计文档位于 [`docs/`](docs/) 目录:
-
-- [总体架构设计](docs/01-总体架构设计.md)
-- [数据库设计](docs/02-数据库设计.md)
-- [API 接口设计](docs/03-API接口设计.md)
-- [Go 后端详细设计](docs/04-Go后端详细设计.md)
-- [前端详细设计](docs/05-前端详细设计.md)
-- [部署与运维](docs/06-部署与运维.md)
-
-## 🤝 贡献指南
-
-欢迎提交 Issue 或 Pull Request。
-
-### 开发规范
-
-**Go 后端**:
-
-- 遵循 Go 官方代码风格
-- 使用 `gofmt` 格式化
-- 函数必须添加注释
-- 错误处理要完善,不能忽略错误
-
-**Vue 前端**:
-
-- 使用 Composition API 和 `<script setup>` 语法
-- 组件命名使用 PascalCase(如 `LoginView`)
-- 优先使用 TypeScript 类型定义
-- 遵循 Vue 3 风格指南
-
-**Git 提交**:
-
-- 分支命名: `feature/xxx`, `fix/xxx`
-- 提交信息格式: `feat: xxx`, `fix: xxx`, `docs: xxx`
-- 提交前确保代码通过格式检查
-
-### 贡献流程
-
-1. Fork 仓库
-2. 创建分支(`git checkout -b feature/xxx`)
-3. 提交修改(`git commit -m 'feat: xxx'`)
-4. 推送分支(`git push origin feature/xxx`)
-5. 创建 Pull Request
-
-## 📄 许可证
-
-本项目采用 [MIT](LICENSE) 许可证。
-
-## 📞 联系方式
-
-如有问题或建议,欢迎提交 Issue。
+- `scripts/setup-postgres.sh` - 初始化 PostgreSQL 用户与数据库
+- `scripts/reset-db.sh` - 清空 Postgre 数据库
