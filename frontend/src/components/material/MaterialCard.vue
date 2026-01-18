@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { useMaterialStore } from '@/stores/material'
 import { useMaterialCategoryStore } from '@/stores/materialCategory'
+import { useOptimisticMutation } from '@/composables/useOptimisticMutation'
 import type { Material } from '@/types'
 
 interface Props {
@@ -57,44 +57,97 @@ const goToDetail = () => {
   router.push(`/materials/${props.material.id}`)
 }
 
-// 收藏/取消收藏
-const toggleFavorite = async (event: MouseEvent) => {
+// 收藏/取消收藏 - 使用乐观更新
+const toggleFavorite = (event: MouseEvent) => {
   event.stopPropagation()
 
-  // 使用 store 中的最新状态，而不是 props
   const material = materialStore.materials.find(m => m.id === props.material.id)
   const isFavorited = material?.is_favorited ?? props.material.is_favorited
 
-  try {
-    if (isFavorited) {
-      // 乐观更新：立即更新 UI，不等待 API
-      materialStore.removeFavorite(props.material.id, true)
-      ElMessage.success('已取消收藏')
-
-      // 异步调用 API
-      materialStore.removeFavorite(props.material.id, false).catch(() => {
-        // 如果失败，回滚状态
-        materialStore.addFavorite(props.material.id, true)
-        ElMessage.error('操作失败，已回滚')
-      })
-    } else {
-      // 乐观更新：立即更新 UI，不等待 API
-      materialStore.addFavorite(props.material.id, true)
-      ElMessage.success('收藏成功')
-
-      // 异步调用 API
-      materialStore.addFavorite(props.material.id, false).catch((error: any) => {
-        // 如果失败，回滚状态
-        if (error.code !== 10006) { // 10006 是"已收藏"错误，不需要回滚
-          materialStore.removeFavorite(props.material.id, true)
-          ElMessage.error(error.message || '操作失败，已回滚')
-        }
-      })
-    }
-  } catch (error: any) {
-    ElMessage.error(error.message || '操作失败')
+  if (isFavorited) {
+    // 取消收藏
+    removeFavoriteMutate(props.material.id)
+  } else {
+    // 添加收藏
+    addFavoriteMutate(props.material.id)
   }
 }
+
+// 添加收藏的乐观更新
+const { mutate: addFavoriteMutate } = useOptimisticMutation(
+  {
+    mutationFn: (id: number) => materialStore.addFavorite(id),
+    onMutate: (id) => {
+      const material = materialStore.materials.find(m => m.id === id)
+      if (material && !material.is_favorited) {
+        material.is_favorited = true
+        material.favorite_count++
+      }
+
+      const current = materialStore.currentMaterial
+      if (current?.id === id && !current.is_favorited) {
+        current.is_favorited = true
+        current.favorite_count++
+      }
+    },
+    onRollback: (id) => {
+      const material = materialStore.materials.find(m => m.id === id)
+      if (material) {
+        material.is_favorited = false
+        material.favorite_count--
+      }
+
+      const current = materialStore.currentMaterial
+      if (current?.id === id) {
+        current.is_favorited = false
+        current.favorite_count--
+      }
+    },
+    onSuccessMessage: '收藏成功',
+    onErrorMessage: '收藏失败，已回滚',
+    onError: (error) => {
+      // 10006 是"已收藏"错误，不需要回滚
+      if ((error as any).code === 10006) {
+        // 不显示错误，因为是重复操作
+      }
+    }
+  }
+)
+
+// 取消收藏的乐观更新
+const { mutate: removeFavoriteMutate } = useOptimisticMutation(
+  {
+    mutationFn: (id: number) => materialStore.removeFavorite(id),
+    onMutate: (id) => {
+      const material = materialStore.materials.find(m => m.id === id)
+      if (material && material.is_favorited) {
+        material.is_favorited = false
+        material.favorite_count--
+      }
+
+      const current = materialStore.currentMaterial
+      if (current?.id === id && current.is_favorited) {
+        current.is_favorited = false
+        current.favorite_count--
+      }
+    },
+    onRollback: (id) => {
+      const material = materialStore.materials.find(m => m.id === id)
+      if (material) {
+        material.is_favorited = true
+        material.favorite_count++
+      }
+
+      const current = materialStore.currentMaterial
+      if (current?.id === id) {
+        current.is_favorited = true
+        current.favorite_count++
+      }
+    },
+    onSuccessMessage: '已取消收藏',
+    onErrorMessage: '取消收藏失败，已回滚'
+  }
+)
 </script>
 
 <template>

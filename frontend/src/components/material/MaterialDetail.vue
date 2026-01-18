@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { useMaterialStore } from '@/stores/material'
 import { useMaterialCategoryStore } from '@/stores/materialCategory'
 import { useAuth } from '@/composables/useAuth'
+import { useOptimisticMutation } from '@/composables/useOptimisticMutation'
 import type { Material } from '@/types'
 
 interface Props {
@@ -77,52 +77,116 @@ const loadDetail = async () => {
   }
 }
 
-// 下载资料
-const handleDownload = async () => {
-  if (!material.value) return
-
-  try {
+// 下载资料 - 使用乐观更新
+const { mutate: handleDownload } = useOptimisticMutation({
+  mutationFn: async () => {
+    if (!material.value) throw new Error('资料不存在')
     const response = await materialStore.getDownloadUrl(material.value.id)
-
     if (response.code === 0 && response.data) {
-      // 打开下载链接
       window.open(response.data.download_url, '_blank')
-
-      // 更新下载次数
-      if (material.value) {
-        material.value.download_count++
-      }
-    } else {
-      ElMessage.error(response.message || '获取下载链接失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.message || '下载失败')
-  }
-}
+    return response
+  },
+  onMutate: () => {
+    if (material.value) {
+      material.value.download_count++
+    }
+  },
+  onRollback: () => {
+    if (material.value) {
+      material.value.download_count--
+    }
+  },
+  showSuccessMessage: false,
+  showErrorMessage: true,
+  onErrorMessage: '下载失败'
+})
 
-// 收藏/取消收藏
-const toggleFavorite = async () => {
+// 收藏/取消收藏 - 使用乐观更新
+const toggleFavorite = () => {
   if (!material.value) return
 
-  try {
-    if (material.value.is_favorited) {
-      await materialStore.removeFavorite(material.value.id)
-      ElMessage.success('已取消收藏')
-    } else {
-      const response = await materialStore.addFavorite(material.value.id)
-      // 检查响应消息,如果已经收藏则提示
-      if (response.message === '已收藏') {
-        ElMessage.info('您已收藏过该资料')
-      } else {
-        ElMessage.success('收藏成功')
-      }
-    }
-  } catch (error: any) {
-    ElMessage.error(error.message || '操作失败')
+  if (material.value.is_favorited) {
+    removeFavoriteMutate(material.value.id)
+  } else {
+    addFavoriteMutate(material.value.id)
   }
 }
 
-// 举报资料
+// 添加收藏的乐观更新
+const { mutate: addFavoriteMutate } = useOptimisticMutation(
+  {
+    mutationFn: (id: number) => materialStore.addFavorite(id),
+    onMutate: (id) => {
+      if (material.value?.id === id && !material.value.is_favorited) {
+        material.value.is_favorited = true
+        material.value.favorite_count++
+      }
+    },
+    onRollback: (id) => {
+      if (material.value?.id === id) {
+        material.value.is_favorited = false
+        material.value.favorite_count--
+      }
+    },
+    onSuccessMessage: '收藏成功',
+    onErrorMessage: '收藏失败，已回滚',
+    onError: (error) => {
+      if ((error as any).code === 10006) {
+        // 已收藏，不显示错误
+      }
+    }
+  }
+)
+
+// 取消收藏的乐观更新
+const { mutate: removeFavoriteMutate } = useOptimisticMutation(
+  {
+    mutationFn: (id: number) => materialStore.removeFavorite(id),
+    onMutate: (id) => {
+      if (material.value?.id === id && material.value.is_favorited) {
+        material.value.is_favorited = false
+        material.value.favorite_count--
+      }
+    },
+    onRollback: (id) => {
+      if (material.value?.id === id) {
+        material.value.is_favorited = true
+        material.value.favorite_count++
+      }
+    },
+    onSuccessMessage: '已取消收藏',
+    onErrorMessage: '取消收藏失败，已回滚'
+  }
+)
+
+// 举报资料 - 使用乐观更新
+const { mutate: submitReport, loading: reportLoading } = useOptimisticMutation({
+  mutationFn: async () => {
+    if (!material.value) throw new Error('资料不存在')
+    if (!reportReason.value.trim()) {
+      throw new Error('请输入举报原因')
+    }
+    return await materialStore.createReport(material.value.id, 'other', reportReason.value)
+  },
+  onMutate: () => {
+    // 立即关闭模态框，给用户即时反馈
+    showReportModal.value = false
+    const reason = reportReason.value
+    reportReason.value = ''
+    return { reason }
+  },
+  onRollback: () => {
+    // 失败时重新打开模态框
+    showReportModal.value = true
+  },
+  onSuccess: () => {
+    // 成功后的额外处理
+  },
+  onSuccessMessage: '举报成功，我们将尽快处理',
+  onErrorMessage: '举报失败'
+})
+
 const openReportModal = () => {
   showReportModal.value = true
   reportReason.value = ''
@@ -131,23 +195,6 @@ const openReportModal = () => {
 const closeReportModal = () => {
   showReportModal.value = false
   reportReason.value = ''
-}
-
-const submitReport = async () => {
-  if (!material.value) return
-
-  if (!reportReason.value.trim()) {
-    ElMessage.warning('请输入举报原因')
-    return
-  }
-
-  try {
-    await materialStore.createReport(material.value.id, 'other', reportReason.value)
-    ElMessage.success('举报成功，我们将尽快处理')
-    closeReportModal()
-  } catch (error: any) {
-    ElMessage.error(error.message || '举报失败')
-  }
 }
 
 // 编辑资料
@@ -397,7 +444,7 @@ onMounted(async () => {
               <button class="modal-button secondary" @click="closeReportModal">
                 取消
               </button>
-              <button class="modal-button primary" @click="submitReport">
+              <button class="modal-button primary" @click="submitReport" :disabled="reportLoading">
                 提交举报
               </button>
             </div>

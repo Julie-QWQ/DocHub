@@ -221,38 +221,24 @@ export const useMaterialStore = defineStore('material', () => {
   }
 
   /**
-   * 添加收藏
-   * @param materialId 资料ID
-   * @param optimistic 是否仅更新UI而不调用API（乐观更新）
+   * 添加收藏（仅 API 调用，UI 更新由 useOptimisticMutation 处理）
    */
-  const addFavorite = async (materialId: number, optimistic = false) => {
-    // 检查是否已经收藏
-    const material = materials.value.find(m => m.id === materialId)
-    if (material?.is_favorited || currentMaterial.value?.is_favorited) {
-      // 如果已经收藏,直接返回成功,不做任何操作
-      return { code: 0, message: '已收藏', data: null }
-    }
-
-    // 乐观更新：立即更新 UI
-    if (optimistic) {
-      const material = materials.value.find(m => m.id === materialId)
-      if (material) {
-        material.is_favorited = true
-        material.favorite_count++
-      }
-
-      if (currentMaterial.value?.id === materialId) {
-        currentMaterial.value.is_favorited = true
-        currentMaterial.value.favorite_count++
-      }
-      return { code: 0, message: '收藏成功', data: null }
-    }
-
-    // 调用 API
+  const addFavorite = async (materialId: number) => {
     const response = await materialApi.addFavorite(materialId)
 
     // code 0 表示成功, code 10006 表示已收藏(也视为成功)
     if (response.code === 0 || response.code === 10006) {
+      // 更新列表中的收藏状态（仅更新布尔值，不修改计数）
+      const material = materials.value.find(m => m.id === materialId)
+      if (material) {
+        material.is_favorited = true
+      }
+
+      // 更新当前资料的收藏状态
+      if (currentMaterial.value?.id === materialId) {
+        currentMaterial.value.is_favorited = true
+      }
+
       // 如果是重复收藏,返回成功消息
       if (response.code === 10006) {
         return { code: 0, message: '已收藏', data: null }
@@ -263,41 +249,21 @@ export const useMaterialStore = defineStore('material', () => {
   }
 
   /**
-   * 取消收藏
-   * @param materialId 资料ID
-   * @param optimistic 是否仅更新UI而不调用API（乐观更新）
+   * 取消收藏（仅 API 调用，UI 更新由 useOptimisticMutation 处理）
    */
-  const removeFavorite = async (materialId: number, optimistic = false) => {
-    // 乐观更新：立即更新 UI
-    if (optimistic) {
-      const material = materials.value.find(m => m.id === materialId)
-      if (material) {
-        material.is_favorited = false
-        material.favorite_count--
-      }
-
-      if (currentMaterial.value?.id === materialId) {
-        currentMaterial.value.is_favorited = false
-        currentMaterial.value.favorite_count--
-      }
-      return { code: 0, message: '已取消收藏', data: null }
-    }
-
-    // 调用 API
+  const removeFavorite = async (materialId: number) => {
     const response = await materialApi.removeFavorite(materialId)
 
     if (response.code === 0) {
-      // 更新列表中的收藏状态
+      // 更新列表中的收藏状态（仅更新布尔值，不修改计数）
       const material = materials.value.find(m => m.id === materialId)
       if (material) {
         material.is_favorited = false
-        material.favorite_count--
       }
 
       // 更新当前资料的收藏状态
       if (currentMaterial.value?.id === materialId) {
         currentMaterial.value.is_favorited = false
-        currentMaterial.value.favorite_count--
       }
     }
 
