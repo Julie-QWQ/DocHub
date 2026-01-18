@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useNavigationStore } from '@/stores/navigation'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -185,6 +186,11 @@ let authInitialized = false
 
 // 路由守卫
 router.beforeEach((to, from, next) => {
+  // 立即更新导航状态（用于侧边栏高亮）
+  const navigationStore = useNavigationStore()
+  navigationStore.setCurrentPath(to.path)
+  navigationStore.startNavigation()
+
   // 设置页面标题
   document.title = `${to.meta.title || 'UPC-DocHub'} | UPC-DocHub`
 
@@ -222,6 +228,19 @@ router.beforeEach((to, from, next) => {
 
   // 允许所有导航（包括已登录用户访问游客页面）
   next()
+})
+
+// 路由加载前守卫（用于标记页面开始加载）
+router.beforeResolve((to) => {
+  const navigationStore = useNavigationStore()
+  navigationStore.setPageLoading(to.path, true)
+})
+
+// 路由加载后守卫
+router.afterEach((to) => {
+  const navigationStore = useNavigationStore()
+  navigationStore.endNavigation()
+  navigationStore.setPageLoading(to.path, false)
 })
 
 export default router

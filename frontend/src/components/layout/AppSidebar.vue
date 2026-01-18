@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useNavigationStore } from '@/stores/navigation'
 import { ElMessage } from 'element-plus'
 import { authApi } from '@/api/auth'
 import SiteName from '@/components/SiteName.vue'
 
-const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const navigationStore = useNavigationStore()
 
 // 用户信息
 const userName = computed(() => authStore.userName)
@@ -231,24 +232,19 @@ const navItems = computed(() => {
   return items
 })
 
-// 判断当前激活的菜单项
+// 判断当前激活的菜单项（使用导航状态，响应更快速）
 const isActive = (path: string) => {
-  // 精确匹配当前路径
-  if (route.path === path) return true
-
-  // 对于子路径，需要确保完整路径匹配且不是其他菜单的前缀
-  // 例如：/materials/upload 不应该让 /materials 高亮
-  if (route.path.startsWith(path + '/')) {
-    // 检查是否有其他菜单项更精确匹配当前路径
-    const hasMoreSpecificMatch = navItems.value.some(item => {
-      if (item.path === path) return false // 跳过自己
-      return route.path.startsWith(item.path + '/') || route.path === item.path
-    })
-    // 只有当没有更精确匹配时，才认为当前路径激活
-    return !hasMoreSpecificMatch
-  }
+  // 使用导航状态而不是路由状态，避免等待路由切换
+  return navigationStore.isPathActive(path)
+}
 
   return false
+}
+
+// 判断当前激活的菜单项（使用导航状态，响应更快速）
+const isActive = (path: string) => {
+  // 使用导航状态而不是路由状态，避免等待路由切换
+  return navigationStore.isPathActive(path)
 }
 
 // 导航跳转
