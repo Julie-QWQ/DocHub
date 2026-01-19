@@ -842,3 +842,27 @@ func (h *MaterialHandler) ListDownloadRecords(c *gin.Context) {
 
 	response.SuccessWithPaginate(c, total, page, pageSize, materials)
 }
+
+// GetDownloadQuota 获取下载配额
+// @Summary 获取下载配额
+// @Description 获取当前用户今日下载配额与剩余量
+// @Tags 下载记录
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response{data=model.DownloadQuotaResponse}
+// @Router /api/v1/downloads/quota [get]
+func (h *MaterialHandler) GetDownloadQuota(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, response.ErrUnauthorized, "未认证")
+		return
+	}
+
+	quota, err := h.materialService.GetDownloadQuota(c.Request.Context(), userID.(uint))
+	if err != nil {
+		response.Error(c, response.ErrInternal, err.Error())
+		return
+	}
+
+	response.Success(c, quota)
+}

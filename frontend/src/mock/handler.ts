@@ -7,6 +7,7 @@ import {
   mockMaterials,
   mockNotifications,
   mockDownloadRecords,
+  mockDownloadQuota,
   mockFavorites,
   mockStatistics,
   mockPaginate,
@@ -46,6 +47,12 @@ const mockHandlers = {
   'GET /api/v1/downloads': async () => {
     await delay()
     return mockSuccess(mockDownloadRecords)
+  },
+
+  // 获取下载配额
+  'GET /api/v1/downloads/quota': async () => {
+    await delay()
+    return mockSuccess(mockDownloadQuota)
   },
 
   // 获取收藏列表

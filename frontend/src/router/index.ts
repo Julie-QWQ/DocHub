@@ -77,6 +77,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/material/Downloads.vue'),
         meta: { title: '下载历史', requiresAuth: true }
       },
+      {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('@/views/profile/Index.vue'),
+        meta: { title: '个人中心', requiresAuth: true }
+      },
       // 搜索相关路由
       {
         path: 'search',

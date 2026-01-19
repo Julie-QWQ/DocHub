@@ -149,6 +149,14 @@ type DownloadRecordResponse struct {
 	CreatedAt  string           `json:"created_at"`
 }
 
+// DownloadQuotaResponse 下载配额响应
+type DownloadQuotaResponse struct {
+	Limit     int   `json:"limit"`
+	Used      int64 `json:"used"`
+	Remaining int64 `json:"remaining"`
+	Unlimited bool  `json:"unlimited"`
+}
+
 // ToMaterialResponse 将 Material 转换为 MaterialResponse
 func (m *Material) ToMaterialResponse() *MaterialResponse {
 	response := &MaterialResponse{

@@ -184,7 +184,6 @@ onMounted(async () => {
         <!-- 页面标题 -->
         <header class="stream-header">
           <h1 class="page-title">资料搜索</h1>
-          <p class="page-subtitle">探索海量学习资源</p>
         </header>
 
         <!-- 搜索区域 -->

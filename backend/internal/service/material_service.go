@@ -53,6 +53,8 @@ type MaterialService interface {
 	GetUploadSignature(ctx context.Context, userID uint, req *model.UploadSignatureRequest) (*model.UploadSignatureResponse, error)
 	// GetDownloadURL 获取下载链接
 	GetDownloadURL(ctx context.Context, materialID, userID uint) (string, error)
+	// GetDownloadQuota 获取下载配额
+	GetDownloadQuota(ctx context.Context, userID uint) (*model.DownloadQuotaResponse, error)
 	// SearchMaterials 搜索资料
 	SearchMaterials(ctx context.Context, keyword string, page, pageSize int) (*model.MaterialListResponse, error)
 	// DeleteUploadedFile 删除已上传但未创建记录的文件
@@ -432,6 +434,33 @@ func (s *materialService) GetDownloadURL(ctx context.Context, materialID, userID
 	s.clearMaterialCache(ctx, materialID)
 
 	return downloadURL, nil
+}
+
+// GetDownloadQuota 获取下载配额
+func (s *materialService) GetDownloadQuota(ctx context.Context, userID uint) (*model.DownloadQuotaResponse, error) {
+	limit := s.getDailyDownloadLimit(ctx)
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	used, err := s.downloadRepo.CountByUserSince(ctx, userID, startOfDay)
+	if err != nil {
+		return nil, fmt.Errorf("统计下载次数失败: %w", err)
+	}
+
+	unlimited := limit <= 0
+	remaining := int64(limit) - used
+	if unlimited {
+		remaining = -1
+	} else if remaining < 0 {
+		remaining = 0
+	}
+
+	return &model.DownloadQuotaResponse{
+		Limit:     limit,
+		Used:      used,
+		Remaining: remaining,
+		Unlimited: unlimited,
+	}, nil
 }
 
 func (s *materialService) getDailyDownloadLimit(ctx context.Context) int {

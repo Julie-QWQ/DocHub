@@ -229,6 +229,14 @@ export interface DownloadRecordListParams extends PaginationParams {
   course_name?: string
 }
 
+// 下载配额
+export interface DownloadQuota {
+  limit: number
+  used: number
+  remaining: number
+  unlimited: boolean
+}
+
 // ==================== 举报相关类型 ====================
 
 // 举报原因

@@ -317,6 +317,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 
 			// 下载记录列表
 			protected.GET("/downloads", materialHandler.ListDownloadRecords)
+			protected.GET("/downloads/quota", materialHandler.GetDownloadQuota)
 
 			// 举报管理（管理员）
 			adminReports := protected.Group("/admin/reports")

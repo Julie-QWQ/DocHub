@@ -185,6 +185,14 @@ export const mockDownloadRecords = [
   }
 ]
 
+// 下载配额 Mock 数据
+export const mockDownloadQuota = {
+  limit: 20,
+  used: 5,
+  remaining: 15,
+  unlimited: false
+}
+
 // 收藏 Mock 数据
 export const mockFavorites = [
   {

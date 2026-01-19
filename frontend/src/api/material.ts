@@ -13,6 +13,7 @@ import type {
   FavoriteListParams,
   DownloadRecord,
   DownloadRecordListParams,
+  DownloadQuota,
   Report,
   ReportListParams,
   CreateReportRequest,
@@ -136,6 +137,13 @@ export const materialApi = {
    */
   getDownloadRecords(params: { page?: number; page_size?: number }): Promise<ApiResponse<PaginateData<Material>>> {
     return request.get('/downloads', { params })
+  },
+
+  /**
+   * 获取下载配额
+   */
+  getDownloadQuota(): Promise<ApiResponse<DownloadQuota>> {
+    return request.get('/downloads/quota')
   }
 }
 
