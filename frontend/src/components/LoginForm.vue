@@ -107,16 +107,16 @@ const onSubmit = handleSubmit(async () => {
       emit('success')
     }
   } else {
-    if (!username.value) {
-      errors.value.username = '请输入用户名或邮箱'
-      ElMessage.error(errors.value.username)
-      return
-    }
-    if (!password.value) {
-      errors.value.password = '请输入密码'
-      ElMessage.error(errors.value.password)
-      return
-    }
+    // if (!username.value) {
+    //   errors.value.username = '请输入用户名或邮箱'
+    //   ElMessage.error(errors.value.username)
+    //   return
+    // }
+    // if (!password.value) {
+    //   errors.value.password = '请输入密码'
+    //   ElMessage.error(errors.value.password)
+    //   return
+    // }
     // 使用用户名登录，不需要验证码
     const credentials: LoginRequest = {
       username: username.value,
@@ -137,9 +137,17 @@ const onSubmit = handleSubmit(async () => {
   <form @submit="onSubmit" class="auth-form">
     <!-- 登录方式选择 -->
     <div class="login-method-toggle">
+      <div
+        class="slider"
+        :class="{
+          'slide-right': loginMethod === 'email' || hoveredMethod === 'email'
+        }"
+      ></div>
       <button
         type="button"
         :class="['method-button', { active: loginMethod === 'username' }]"
+        @mouseenter="handleMouseEnter('username')"
+        @mouseleave="handleMouseLeave"
         @click="loginMethod = 'username'"
       >
         用户名登录
@@ -147,6 +155,8 @@ const onSubmit = handleSubmit(async () => {
       <button
         type="button"
         :class="['method-button', { active: loginMethod === 'email' }]"
+        @mouseenter="handleMouseEnter('email')"
+        @mouseleave="handleMouseLeave"
         @click="loginMethod = 'email'"
       >
         邮箱登录
@@ -163,7 +173,6 @@ const onSubmit = handleSubmit(async () => {
         autocomplete="username"
         :disabled="isSubmitting"
       />
-      <p v-if="errors.username" class="error-message">{{ errors.username }}</p>
     </div>
 
     <!-- 只有用户名登录时才显示密码输入 -->
@@ -177,7 +186,6 @@ const onSubmit = handleSubmit(async () => {
         autocomplete="current-password"
         :disabled="isSubmitting"
       />
-      <p v-if="errors.password" class="error-message">{{ errors.password }}</p>
     </div>
 
     <!-- 只有选择邮箱登录时才显示验证码输入 -->
@@ -223,6 +231,7 @@ const onSubmit = handleSubmit(async () => {
 
 // 登录方式切换按钮
 .login-method-toggle {
+  position: relative;
   display: flex;
   gap: 8px;
   padding: 6px;
@@ -231,7 +240,26 @@ const onSubmit = handleSubmit(async () => {
   background: rgba(15, 118, 110, 0.08);
   border: 1px solid rgba(15, 118, 110, 0.18);
 
+  // 滑块背景
+  .slider {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: calc(50% - 8px);
+    height: calc(100% - 12px);
+    background: linear-gradient(120deg, #0f766e, #14b8a6);
+    border-radius: 999px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 18px rgba(15, 118, 110, 0.25);
+    z-index: 0;
+
+    &.slide-right {
+      transform: translateX(calc(100% + 8px));
+    }
+  }
+
   .method-button {
+    position: relative;
     flex: 1;
     padding: 10px 16px;
     height: 42px;
@@ -242,7 +270,8 @@ const onSubmit = handleSubmit(async () => {
     cursor: pointer;
     font-size: 0.95rem;
     font-weight: 600;
-    transition: all 0.2s ease;
+    transition: color 0.3s ease;
+    z-index: 1;
 
     &:hover {
       color: rgba(15, 23, 42, 0.9);
@@ -250,8 +279,6 @@ const onSubmit = handleSubmit(async () => {
 
     &.active {
       color: #ffffff;
-      background: linear-gradient(120deg, #0f766e, #14b8a6);
-      box-shadow: 0 8px 18px rgba(15, 118, 110, 0.25);
     }
   }
 }

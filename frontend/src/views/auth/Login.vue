@@ -3,18 +3,18 @@
     <div class="auth-split-grid">
       <section class="auth-intro">
         <div>
-          <h1 class="auth-brand-title"><SiteName /></h1>
-          <p class="auth-brand-subtitle">{{ siteDescription }}</p>
+          <h1 class="auth-brand-title interactive-text"><SiteName /></h1>
+          <p class="auth-brand-subtitle interactive-text">{{ siteDescription }}</p>
         </div>
         <div>
-          <h2 class="auth-intro-heading">把资料整理成你的学习基地</h2>
-          <p class="auth-intro-text">
-            课程资料、试卷与实验一站管理，快速搜索与分享。
+          <h2 class="auth-intro-heading interactive-text">把资料整理成你的学习基地</h2>
+          <p class="auth-intro-text interactive-text">
+            课程资料、试卷与实验一站管理,快速搜索与分享。
           </p>
           <ul class="auth-intro-list">
-            <li>搜索课件、试卷与实验资料</li>
-            <li>收藏常用资源并追踪下载</li>
-            <li>与同学共享高质量资料</li>
+            <li class="interactive-text">搜索课件、试卷与实验资料</li>
+            <li class="interactive-text">收藏常用资源并追踪下载</li>
+            <li class="interactive-text">与同学共享高质量资料</li>
           </ul>
         </div>
       </section>
